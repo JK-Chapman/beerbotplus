@@ -8,6 +8,11 @@ __pycache__/
 env/
 venv/
 ENV/
+.venv/
+*.venv/
+
+# Optional: Windows venv script
+Scripts/
 
 # Environment files
 .env
@@ -32,3 +37,5 @@ build/
 *.ckpt
 *.h5
 *.pb
+
+# README setup snippet (not necessary to ignore but helpful to include in README.md)
