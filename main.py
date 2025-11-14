@@ -1,47 +1,50 @@
-# Imports
-import hashlib
-import logging
-import discord
+# imports
 import os
+import logging
+import signal
+import asyncio
 from dotenv import load_dotenv
+from discord import Intents
+from mydiscord import BeerBot
 
-# load environment variables
+
+# load environment
 load_dotenv()
-token = os.environ.get('DISCORD_BOT_TOKEN')
-
-# var setup
-intents = discord.Intents.default()
-intents.message_content = True
-
-client = discord.Client(intents=intents)
-
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-
-# Event Handling
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.content.startswith('$hello'):
-        await message.channel.send('Hello!')
-    
-    if message.content.attachments:
-        attachment = message.attachments[0] # only support one attachment
-        # Check if it's an image by content_type or extension
-        if (attachment.content_type and attachment.content_type.startswith('image/')) or \
-            attachment.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
-            # Download the attachment
-            file_bytes = await attachment.read()
-            # Calculate SHA256 checksum
-            checksum = hashlib.sha256(file_bytes).hexdigest()
-            # validate checksum hasn't been used before using postgresql
-
-            # if valid then run the picture through the model
-
-        else:
-            await message.channel.send(f'Attachment {attachment.filename} is not an image.')
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 
-# Actually run the bot
-client.run(token, log_handler=handler)
+def main():
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
+    logging.getLogger().addHandler(handler)
+
+    intents = Intents.default()
+    intents.message_content = True
+
+    bot = BeerBot(TOKEN, intents=intents)
+
+    # Run the bot in an asyncio event loop, so we can handle signals gracefully
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    def _stop_loop_on_signal(signame):
+        logging.info(f"Received signal {signame}; shutting down")
+        loop.create_task(bot.close())
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, lambda s=sig: _stop_loop_on_signal(s.name))
+        except NotImplementedError:
+            # Windows event loop policy may not support signal handlers for all signals
+            pass
+
+    try:
+        bot.run()
+    except Exception:
+        logging.exception("Bot stopped due to exception")
+    finally:
+        loop.run_until_complete(loop.shutdown_asyncgens())
+
+
+if __name__ == '__main__':
+    main()

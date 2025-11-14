@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  beerbot:
+    build: .
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./discord.log:/app/discord.log
+    command: ["python", "main.py"]
